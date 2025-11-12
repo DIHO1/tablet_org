@@ -23,3 +23,12 @@ Config.MaxFundsAdjustment = 250000
 Config.MaxStoredFunds = 2000000
 Config.MaxPlanEntries = 8
 Config.MaxPlanLabelLength = 64
+
+-- Discord role verification used to unlock organization creation when none exists yet.
+Config.Discord = {
+  GuildId = '1435216731063717922',
+  RequiredRoleId = '1438145331144687837',
+  BotToken = '', -- Wklej token bota Discord w to pole, aby włączyć weryfikację rangi.
+  CacheDuration = 300, -- czas (w sekundach) przez jaki wynik sprawdzenia będzie pamiętany
+  Timeout = 5000, -- maksymalny czas oczekiwania na odpowiedź Discord (ms)
+}

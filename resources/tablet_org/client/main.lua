@@ -1,6 +1,6 @@
 local isOpen = false
 
-local function openTablet(data)
+local function openTablet(data, permissions)
   if isOpen then
     return
   end
@@ -13,6 +13,7 @@ local function openTablet(data)
   SendNUIMessage({
     action = 'open',
     data = data or {},
+    permissions = permissions,
   })
 end
 
@@ -48,7 +49,7 @@ RegisterNetEvent('tablet_org:clientUpdate', function(payload)
   end
 
   if payload.action == 'open' then
-    openTablet(payload.data)
+    openTablet(payload.data, payload.permissions)
     return
   end
 
@@ -57,8 +58,8 @@ RegisterNetEvent('tablet_org:clientUpdate', function(payload)
     return
   end
 
-  if payload.data then
-    SendNUIMessage({ action = 'update', data = payload.data })
+  if payload.data or payload.permissions then
+    SendNUIMessage({ action = 'update', data = payload.data, permissions = payload.permissions })
   end
 
   if payload.message then

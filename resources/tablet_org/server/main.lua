@@ -17,6 +17,225 @@ local organization = {
   dailyPlan = {},
 }
 
+local discordRoleCache = {}
+local DISCORD_DEFAULT_DENY = 'Postaraj się o rangę na DC, aby utworzyć organizację.'
+
+local function trimString(value)
+  if type(value) ~= 'string' then
+    return nil
+  end
+
+  local trimmed = value:gsub('^%s+', ''):gsub('%s+$', '')
+  if trimmed == '' then
+    return nil
+  end
+
+  return trimmed
+end
+
+local function isDiscordCheckEnabled()
+  if type(Config.Discord) ~= 'table' then
+    return false
+  end
+
+  local guildId = trimString(Config.Discord.GuildId)
+  local roleId = trimString(Config.Discord.RequiredRoleId)
+
+  return guildId ~= nil and roleId ~= nil
+end
+
+local function getPlayerDiscordId(src)
+  if not src then
+    return nil
+  end
+
+  local identifiers = GetPlayerIdentifiers(src)
+  if type(identifiers) ~= 'table' then
+    return nil
+  end
+
+  for _, identifier in ipairs(identifiers) do
+    if type(identifier) == 'string' then
+      local discordId = identifier:match('discord:(%d+)')
+      if discordId then
+        return discordId
+      end
+    end
+  end
+
+  return nil
+end
+
+local function getCachedDiscordRole(discordId)
+  if not discordId then
+    return nil
+  end
+
+  local entry = discordRoleCache[discordId]
+  if not entry then
+    return nil
+  end
+
+  if entry.expires and entry.expires > os.time() then
+    return entry
+  end
+
+  discordRoleCache[discordId] = nil
+  return nil
+end
+
+local function setCachedDiscordRole(discordId, hasRole, message)
+  if not discordId then
+    return
+  end
+
+  local cacheTtl = 300
+  if type(Config.Discord) == 'table' and tonumber(Config.Discord.CacheDuration) then
+    cacheTtl = math.max(30, math.floor(tonumber(Config.Discord.CacheDuration)))
+  end
+
+  discordRoleCache[discordId] = {
+    hasRole = hasRole == true,
+    message = message,
+    expires = os.time() + cacheTtl,
+  }
+end
+
+local function fetchDiscordRole(discordId)
+  if not isDiscordCheckEnabled() then
+    return true, nil
+  end
+
+  local guildId = trimString(Config.Discord.GuildId)
+  local roleId = trimString(Config.Discord.RequiredRoleId)
+  local botToken = trimString(Config.Discord.BotToken)
+
+  if not discordId then
+    return false, 'Połącz konto Discord z FiveM, aby utworzyć organizację.'
+  end
+
+  if not botToken then
+    local message = 'Konfiguracja Discord wymaga uzupełnienia tokenu bota (Config.Discord.BotToken).'
+    setCachedDiscordRole(discordId, false, message)
+    return false, message
+  end
+
+  local cached = getCachedDiscordRole(discordId)
+  if cached then
+    return cached.hasRole, cached.message
+  end
+
+  local requestPromise = promise.new()
+  local resolved = false
+  local url = ('https://discord.com/api/guilds/%s/members/%s'):format(guildId, discordId)
+  local headers = {
+    ['Authorization'] = 'Bot ' .. botToken,
+    ['Content-Type'] = 'application/json',
+  }
+
+  PerformHttpRequest(url, function(statusCode, body)
+    if resolved then
+      return
+    end
+
+    resolved = true
+    local success = statusCode == 200 and type(body) == 'string' and body ~= ''
+
+    if success then
+      local decoded
+      if json and type(json.decode) == 'function' then
+        local ok, result = pcall(json.decode, body)
+        if ok then
+          decoded = result
+        end
+      end
+
+      if type(decoded) == 'table' and type(decoded.roles) == 'table' then
+        local hasRole = false
+        for _, role in ipairs(decoded.roles) do
+          if tostring(role) == tostring(roleId) then
+            hasRole = true
+            break
+          end
+        end
+
+        local message = hasRole and nil or DISCORD_DEFAULT_DENY
+        setCachedDiscordRole(discordId, hasRole, message)
+        requestPromise:resolve({ hasRole = hasRole, message = message })
+        return
+      end
+
+      requestPromise:resolve({ hasRole = false, message = 'Nie udało się odczytać danych Discord.' })
+      return
+    end
+
+    if statusCode == 404 then
+      requestPromise:resolve({ hasRole = false, message = 'Nie znaleziono konta Discord na serwerze.' })
+      return
+    end
+
+    local errorMessage = ('Błąd komunikacji z Discord (kod %s).'):format(statusCode or '0')
+    requestPromise:resolve({ hasRole = false, message = errorMessage })
+  end, 'GET', '', headers)
+
+  local timeout = tonumber(Config.Discord.Timeout) or 5000
+  timeout = math.max(1000, math.floor(timeout))
+  Citizen.SetTimeout(timeout, function()
+    if resolved then
+      return
+    end
+
+    resolved = true
+    requestPromise:resolve({ hasRole = false, message = 'Przekroczono limit czasu odpowiedzi Discord.' })
+  end)
+
+  local result = Citizen.Await(requestPromise)
+
+  local hasRole = result and result.hasRole
+  local message = result and result.message or DISCORD_DEFAULT_DENY
+
+  if hasRole ~= nil then
+    setCachedDiscordRole(discordId, hasRole, message)
+  end
+
+  return hasRole == true, message
+end
+
+local function canPlayerCreateOrganization(src)
+  if organization.name then
+    return true, nil
+  end
+
+  if not isDiscordCheckEnabled() then
+    return true, nil
+  end
+
+  local discordId = getPlayerDiscordId(src)
+  local hasRole, message = fetchDiscordRole(discordId)
+
+  if hasRole then
+    return true, nil
+  end
+
+  return false, message or DISCORD_DEFAULT_DENY
+end
+
+local function buildPermissionPayload(src)
+  if organization.name then
+    return { canCreate = true }
+  end
+
+  if not isDiscordCheckEnabled() then
+    return { canCreate = true }
+  end
+
+  local canCreate, reason = canPlayerCreateOrganization(src)
+  return {
+    canCreate = canCreate,
+    reason = reason or DISCORD_DEFAULT_DENY,
+  }
+end
+
 local function cloneOrganization()
   local planCopy = {}
   if type(organization.dailyPlan) == 'table' then
@@ -243,6 +462,14 @@ local function isJobAllowed(jobName)
 end
 
 local function sendClientUpdate(target, payload)
+  if type(payload) ~= 'table' then
+    payload = {}
+  end
+
+  if target and payload.permissions == nil then
+    payload.permissions = buildPermissionPayload(target)
+  end
+
   TriggerClientEvent('tablet_org:clientUpdate', target, payload)
 end
 
@@ -318,6 +545,13 @@ local function handleOrganizationSave(src, payload)
   end
 
   local isNew = organization.name == nil
+  if isNew then
+    local canCreate, reason = canPlayerCreateOrganization(src)
+    if not canCreate then
+      sendClientUpdate(src, { error = reason or DISCORD_DEFAULT_DENY, context = 'setup' })
+      return
+    end
+  end
   local nameChanged = organization.name and organization.name:lower() ~= name:lower()
 
   organization.name = name
@@ -522,6 +756,9 @@ AddEventHandler('onResourceStart', function(resource)
 
   ensureSchema()
   loadOrganization()
+  if isDiscordCheckEnabled() and not trimString(Config.Discord.BotToken) then
+    print('^3[tablet_org]^7 Brak tokenu bota Discord (Config.Discord.BotToken). Gracze bez rangi nie będą mogli utworzyć organizacji.')
+  end
   print('^2[tablet_org]^7 Resource ready.')
 end)
 

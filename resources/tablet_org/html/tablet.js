@@ -1,6 +1,7 @@
 const RESOURCE_NAME = typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'tablet_org';
 
 const MAX_PLAN_ROWS = 8;
+const DEFAULT_PERMISSION_MESSAGE = 'Postaraj się o rangę na DC, aby utworzyć organizację.';
 
 const state = {
   name: null,
@@ -12,6 +13,10 @@ const state = {
   createdAt: null,
   updatedAt: null,
   dailyPlan: [],
+  permissions: {
+    canCreate: true,
+    reason: '',
+  },
 };
 
 function postNui(action, payload = {}) {
@@ -220,9 +225,62 @@ function toggleVisibility(visible) {
   document.body.classList.toggle('tablet--hidden', !visible);
   if (visible) {
     activatePage(currentPage || 'dashboard');
+    updateCreationGuard();
   } else {
     currentPage = 'dashboard';
     activatePage('dashboard');
+    updateCreationGuard();
+  }
+}
+
+function syncPermissions(incoming) {
+  if (!incoming || typeof incoming !== 'object') {
+    state.permissions = { canCreate: true, reason: '' };
+  } else {
+    const canCreate = incoming.canCreate !== false;
+    const reason = typeof incoming.reason === 'string' ? incoming.reason.trim() : '';
+    state.permissions = {
+      canCreate,
+      reason,
+    };
+  }
+
+  updateCreationGuard();
+}
+
+function updateCreationGuard() {
+  const guardWrapper = document.querySelector('[data-form-guard]');
+  const overlay = document.querySelector('[data-create-overlay]');
+  const message = document.querySelector('[data-create-message]');
+  const form = document.getElementById('org-form');
+  const shouldLock = !state.name && state.permissions && state.permissions.canCreate === false;
+  const reasonText = state.permissions && typeof state.permissions.reason === 'string' && state.permissions.reason.trim() !== ''
+    ? state.permissions.reason.trim()
+    : DEFAULT_PERMISSION_MESSAGE;
+
+  if (guardWrapper) {
+    guardWrapper.classList.toggle('config-form__guard--locked', shouldLock);
+  }
+
+  if (overlay) {
+    overlay.hidden = !shouldLock;
+    overlay.setAttribute('aria-hidden', shouldLock ? 'false' : 'true');
+  }
+
+  if (message) {
+    message.textContent = reasonText;
+  }
+
+  if (form) {
+    form.setAttribute('aria-disabled', shouldLock ? 'true' : 'false');
+    const inputs = form.querySelectorAll('input, textarea, button, select');
+    inputs.forEach((element) => {
+      if (element.dataset.lockBypass === 'true') {
+        return;
+      }
+
+      element.disabled = shouldLock;
+    });
   }
 }
 
@@ -357,6 +415,7 @@ function renderOrganization(data) {
 
   syncFormValues(document.getElementById('org-form'));
   syncNoteForm();
+  updateCreationGuard();
 }
 
 function syncState(newState) {
@@ -382,6 +441,10 @@ function syncState(newState) {
 
 function handleMessage(event) {
   const payload = event.data || {};
+
+  if (payload.permissions) {
+    syncPermissions(payload.permissions);
+  }
 
   if (payload.action === 'open') {
     if (payload.data) {
@@ -455,6 +518,14 @@ function handleOrgFormSubmit(event) {
   const owner = String(formData.get('owner') || '').trim();
   const motto = String(formData.get('motto') || '').trim();
   const recruitment = String(formData.get('recruitment') || '').trim();
+
+  if (!state.name && state.permissions && state.permissions.canCreate === false) {
+    const reason = state.permissions && typeof state.permissions.reason === 'string' && state.permissions.reason.trim() !== ''
+      ? state.permissions.reason.trim()
+      : DEFAULT_PERMISSION_MESSAGE;
+    setFeedback(reason, 'error', 'setup');
+    return;
+  }
 
   if (!name || !owner) {
     setFeedback('Uzupełnij nazwę i właściciela.', 'error', 'setup');

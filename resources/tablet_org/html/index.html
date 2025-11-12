@@ -110,60 +110,69 @@
                     <h3 class="board__title">Konfiguracja organizacji</h3>
                     <span class="board__badge" data-org-status-pill>Nieaktywna</span>
                   </div>
-                  <form id="org-form" class="config-form">
-                    <div class="config-form__group">
-                      <label class="config-form__label" for="org-name">Nazwa organizacji</label>
-                      <input
-                        id="org-name"
-                        name="name"
-                        class="config-form__input"
-                        type="text"
-                        placeholder="Wpisz nazwę organizacji"
-                        autocomplete="off"
-                        required
-                      />
-                    </div>
-                    <div class="config-form__row">
+                  <div class="config-form__guard" data-form-guard>
+                    <form id="org-form" class="config-form">
                       <div class="config-form__group">
-                        <label class="config-form__label" for="org-owner">Właściciel</label>
+                        <label class="config-form__label" for="org-name">Nazwa organizacji</label>
                         <input
-                          id="org-owner"
-                          name="owner"
+                          id="org-name"
+                          name="name"
                           class="config-form__input"
                           type="text"
-                          placeholder="Podaj nick właściciela"
+                          placeholder="Wpisz nazwę organizacji"
                           autocomplete="off"
                           required
                         />
                       </div>
-                      <div class="config-form__group">
-                        <label class="config-form__label" for="org-motto">Motto</label>
-                        <input
-                          id="org-motto"
-                          name="motto"
-                          class="config-form__input"
-                          type="text"
-                          placeholder="Krótki slogan drużyny"
-                          maxlength="280"
-                        />
+                      <div class="config-form__row">
+                        <div class="config-form__group">
+                          <label class="config-form__label" for="org-owner">Właściciel</label>
+                          <input
+                            id="org-owner"
+                            name="owner"
+                            class="config-form__input"
+                            type="text"
+                            placeholder="Podaj nick właściciela"
+                            autocomplete="off"
+                            required
+                          />
+                        </div>
+                        <div class="config-form__group">
+                          <label class="config-form__label" for="org-motto">Motto</label>
+                          <input
+                            id="org-motto"
+                            name="motto"
+                            class="config-form__input"
+                            type="text"
+                            placeholder="Krótki slogan drużyny"
+                            maxlength="280"
+                          />
+                        </div>
                       </div>
-                    </div>
-                    <div class="config-form__group">
-                      <label class="config-form__label" for="org-recruitment">Wiadomość rekrutacyjna</label>
-                      <textarea
-                        id="org-recruitment"
-                        name="recruitment"
-                        class="config-form__textarea"
-                        placeholder="Opisz wymagania i kontakt do rekrutacji"
-                        maxlength="320"
-                      ></textarea>
-                      <p class="config-form__hint">
-                        Wprowadź nazwę, właściciela oraz wiadomość rekrutacyjną i zapisz konfigurację.
+                      <div class="config-form__group">
+                        <label class="config-form__label" for="org-recruitment">Wiadomość rekrutacyjna</label>
+                        <textarea
+                          id="org-recruitment"
+                          name="recruitment"
+                          class="config-form__textarea"
+                          placeholder="Opisz wymagania i kontakt do rekrutacji"
+                          maxlength="320"
+                        ></textarea>
+                        <p class="config-form__hint">
+                          Wprowadź nazwę, właściciela oraz wiadomość rekrutacyjną i zapisz konfigurację.
+                        </p>
+                      </div>
+                      <button class="config-form__submit" type="submit">Zapisz konfigurację</button>
+                      <p class="config-form__feedback" data-feedback="setup"></p>
+                    </form>
+                    <div class="config-form__overlay" data-create-overlay hidden>
+                      <span class="config-form__overlay-eyebrow">W budowie</span>
+                      <h4 class="config-form__overlay-title">Wkrótce dostępne</h4>
+                      <p class="config-form__overlay-text" data-create-message>
+                        Postaraj się o rangę na DC, aby utworzyć organizację.
                       </p>
                     </div>
-                    <button class="config-form__submit" type="submit">Zapisz konfigurację</button>
-                    <p class="config-form__feedback" data-feedback="setup"></p>
-                  </form>
+                  </div>
                 </article>
 
                 <article class="board__card board__card--schedule">
