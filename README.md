@@ -5,6 +5,9 @@ Interfejs NUI mieści się w widoku gry, został oprawiony w ramkę tabletu i
 umożliwia z poziomu panelu tworzyć oraz utrzymywać organizację (dowolna nazwa,
 właściciel, motto, komunikat rekrutacyjny, skarbiec i notatki). Dane są
 zapisywane w bazie MySQL przy użyciu `oxmysql`.
+Interfejs NUI mieści się w widoku gry i pozwala z poziomu tabletu tworzyć oraz
+aktualizować organizację (dowolna nazwa i właściciel), a dane są zapisywane w
+bazie MySQL przy użyciu `oxmysql`.
 
 ## Instalacja
 
@@ -28,6 +31,7 @@ zapisywane w bazie MySQL przy użyciu `oxmysql`.
      `note` TEXT NULL,
      `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
      `updated_at` DATETIME NULL,
+     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
      PRIMARY KEY (`id`)
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
    ```
