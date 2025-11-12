@@ -14,13 +14,6 @@
     <script src="tablet.js" defer></script>
   </head>
   <body class="tablet--hidden">
-    <div class="background">
-      <div class="background__gradient"></div>
-      <div class="background__glow background__glow--left"></div>
-      <div class="background__glow background__glow--right"></div>
-      <div class="background__dots"></div>
-    </div>
-
     <div class="tablet">
       <div class="tablet__bezel">
         <span class="tablet__camera" aria-hidden="true"></span>
@@ -34,16 +27,18 @@
             </header>
             <nav class="sidebar__nav">
               <a class="sidebar__item sidebar__item--active" href="#">Strona Główna</a>
-              <a class="sidebar__item" href="#">Główna</a>
+              <a class="sidebar__item" href="#">Kalendarz</a>
               <a class="sidebar__item" href="#">Notatnik</a>
-              <a class="sidebar__item" href="#">Sklep</a>
+              <a class="sidebar__item" href="#">Skarbiec</a>
               <a class="sidebar__item" href="#">Rekrutacja</a>
-              <a class="sidebar__item" href="#">Baza Organizacji</a>
+              <a class="sidebar__item" href="#">Baza danych</a>
               <a class="sidebar__item" href="#">Zadania</a>
-              <a class="sidebar__item" href="#">Finanse</a>
-              <a class="sidebar__item" href="#">Panel</a>
+              <a class="sidebar__item" href="#">Analizy</a>
             </nav>
-            <button class="sidebar__cta">💬 Ogłoś organizację</button>
+            <div class="sidebar__meta">
+              <p class="sidebar__hint">Szybki dostęp do zarządzania organizacją.</p>
+              <button class="sidebar__cta">💬 Ogłoś organizację</button>
+            </div>
           </aside>
 
           <section class="content">
@@ -56,9 +51,11 @@
                 </p>
               </div>
               <div class="content__actions">
-                <button class="content__button content__button--ghost" type="button">
-                  Nowa notatka
-                </button>
+                <div class="content__chip">
+                  <span class="content__chip-dot"></span>
+                  <span data-org-updated>Brak aktualizacji</span>
+                </div>
+                <button class="content__button content__button--ghost" type="button">Nowa notatka</button>
                 <button class="content__button content__button--close" data-action="close" type="button">
                   Zamknij
                 </button>
@@ -67,54 +64,50 @@
 
             <section class="stats-grid">
               <article class="stat-card">
-                <p class="stat-card__label">Liczba członków</p>
-                <p class="stat-card__value">16</p>
-                <p class="stat-card__footer">Ostatnia aktywność 2 dni temu</p>
+                <p class="stat-card__label">Status organizacji</p>
+                <p class="stat-card__value" data-org-status-large>Nieaktywna</p>
+                <p class="stat-card__footer">Nadaj nazwę i właściciela, aby aktywować panel.</p>
               </article>
               <article class="stat-card">
-                <p class="stat-card__label">Ukończone zadania</p>
-                <p class="stat-card__value">45</p>
-                <p class="stat-card__footer">+3 w tym tygodniu</p>
+                <p class="stat-card__label">Środki w skarbcu</p>
+                <p class="stat-card__value" data-org-funds>0 $</p>
+                <p class="stat-card__footer">Limit przechowywania 2 000 000 $</p>
               </article>
               <article class="stat-card">
-                <p class="stat-card__label">Poziom bazy</p>
-                <p class="stat-card__value">5</p>
-                <p class="stat-card__footer">Kolejny poziom za 1200 exp</p>
+                <p class="stat-card__label">Data utworzenia</p>
+                <p class="stat-card__value" data-org-created>Brak</p>
+                <p class="stat-card__footer">Automatycznie ustawiana przy zakładaniu.</p>
               </article>
               <article class="stat-card">
-                <p class="stat-card__label">Złoto w skarbcu</p>
-                <p class="stat-card__value">20</p>
-                <p class="stat-card__footer">+120 dzisiaj</p>
+                <p class="stat-card__label">Rekrutacja</p>
+                <p class="stat-card__value" data-org-recruitment>Brak</p>
+                <p class="stat-card__footer">Udostępnij wiadomość kandydatom.</p>
               </article>
             </section>
 
             <section class="board">
-              <article class="board__card board__card--wide">
+              <article class="board__card board__card--wide board__card--identity">
                 <div class="board__card-header">
-                  <h3 class="board__title">Przypięta notatka</h3>
-                  <span class="board__badge board__badge--important">!</span>
+                  <h3 class="board__title">Tożsamość organizacji</h3>
+                  <span class="board__badge" data-org-created-badge>Brak</span>
                 </div>
-                <p class="board__description">
-                  Lorem ipsum dolor sit amet consectetur. Nisi volutpat sit massa
-                  convallis dolor. Elementum netus sed montes nisi sed. Lacus
-                  fermentum vestibulum id.
+                <p class="board__description" data-org-motto>
+                  Dodaj motto, aby wyróżnić charakter Twojej drużyny.
                 </p>
                 <footer class="board__footer">
-                  <span class="board__meta">Dodano: 02.09.2023</span>
-                  <button class="board__link">Zobacz wszystkie</button>
+                  <span class="board__meta">Ostatnia aktualizacja</span>
+                  <span class="board__meta" data-org-updated-footer>Brak</span>
                 </footer>
               </article>
 
               <article class="board__card board__card--wide board__card--form">
                 <div class="board__card-header">
                   <h3 class="board__title">Konfiguracja organizacji</h3>
-                  <span class="board__badge" data-org-created>Brak</span>
+                  <span class="board__badge" data-org-status-pill>Nieaktywna</span>
                 </div>
                 <form id="org-form" class="config-form">
                   <div class="config-form__group">
-                    <label class="config-form__label" for="org-name"
-                      >Nazwa organizacji</label
-                    >
+                    <label class="config-form__label" for="org-name">Nazwa organizacji</label>
                     <input
                       id="org-name"
                       name="name"
@@ -124,44 +117,120 @@
                       autocomplete="off"
                       required
                     />
-                    <p class="config-form__hint">
-                      Wprowadź nazwę i właściciela, aby zapisać konfigurację.
-                    </p>
+                  </div>
+                  <div class="config-form__row">
+                    <div class="config-form__group">
+                      <label class="config-form__label" for="org-owner">Właściciel</label>
+                      <input
+                        id="org-owner"
+                        name="owner"
+                        class="config-form__input"
+                        type="text"
+                        placeholder="Podaj nick właściciela"
+                        autocomplete="off"
+                        required
+                      />
+                    </div>
+                    <div class="config-form__group">
+                      <label class="config-form__label" for="org-motto">Motto</label>
+                      <input
+                        id="org-motto"
+                        name="motto"
+                        class="config-form__input"
+                        type="text"
+                        placeholder="Krótki slogan drużyny"
+                        maxlength="280"
+                      />
+                    </div>
                   </div>
                   <div class="config-form__group">
-                    <label class="config-form__label" for="org-owner"
-                      >Właściciel</label
-                    >
-                    <input
-                      id="org-owner"
-                      name="owner"
-                      class="config-form__input"
-                      type="text"
-                      placeholder="Podaj nick właściciela"
-                      autocomplete="off"
-                      required
-                    />
+                    <label class="config-form__label" for="org-recruitment">Wiadomość rekrutacyjna</label>
+                    <textarea
+                      id="org-recruitment"
+                      name="recruitment"
+                      class="config-form__textarea"
+                      placeholder="Opisz wymagania i kontakt do rekrutacji"
+                      maxlength="320"
+                    ></textarea>
+                    <p class="config-form__hint">
+                      Wprowadź nazwę, właściciela oraz wiadomość rekrutacyjną i zapisz konfigurację.
+                    </p>
                   </div>
-                  <button class="config-form__submit" type="submit">
-                    Zapisz konfigurację
-                  </button>
-                  <p class="config-form__feedback" data-feedback></p>
+                  <button class="config-form__submit" type="submit">Utwórz organizację</button>
+                  <p class="config-form__feedback" data-feedback="setup"></p>
                 </form>
+              </article>
+
+              <article class="board__card board__card--finance">
+                <div class="board__card-header">
+                  <h3 class="board__title">Skarbiec organizacji</h3>
+                  <span class="board__badge board__badge--accent" data-org-funds-badge>0 $</span>
+                </div>
+                <div class="finance">
+                  <p class="finance__balance">Aktualny stan: <strong data-org-funds-strong>0 $</strong></p>
+                  <form id="funds-form" class="finance__form">
+                    <label class="config-form__label" for="funds-amount">Kwota</label>
+                    <input
+                      id="funds-amount"
+                      name="amount"
+                      class="config-form__input"
+                      type="number"
+                      min="1"
+                      step="1"
+                      placeholder="Wpisz kwotę"
+                    />
+                    <div class="finance__actions">
+                      <button class="finance__button" type="submit" data-direction="deposit">Dodaj środki</button>
+                      <button class="finance__button finance__button--outline" type="submit" data-direction="withdraw">
+                        Wypłać środki
+                      </button>
+                    </div>
+                    <p class="config-form__feedback" data-feedback="funds"></p>
+                  </form>
+                </div>
+              </article>
+
+              <article class="board__card board__card--wide board__card--note">
+                <div class="board__card-header">
+                  <h3 class="board__title">Tablica ogłoszeń</h3>
+                  <span class="board__badge board__badge--ghost">Wewnętrzne</span>
+                </div>
+                <form id="note-form" class="config-form config-form--stacked">
+                  <label class="config-form__label" for="org-note">Najważniejsza wiadomość</label>
+                  <textarea
+                    id="org-note"
+                    name="note"
+                    class="config-form__textarea"
+                    placeholder="Zostaw instrukcję dla zespołu"
+                    maxlength="480"
+                  ></textarea>
+                  <div class="config-form__footer">
+                    <span class="config-form__hint">Zmiany widoczne są dla całej organizacji.</span>
+                    <button class="config-form__submit" type="submit">Zapisz notatkę</button>
+                  </div>
+                  <p class="config-form__feedback" data-feedback="note"></p>
+                </form>
+                <div class="board__note-preview">
+                  <p class="board__description" data-org-note>
+                    Brak zapisanej notatki. Uzupełnij tablicę, aby przekazać priorytetowe zadania.
+                  </p>
+                </div>
               </article>
 
               <article class="board__card">
                 <div class="board__card-header">
-                  <h3 class="board__title">Sklady</h3>
-                  <span class="board__badge">6</span>
+                  <h3 class="board__title">Aktywność</h3>
+                  <span class="board__badge">Plan dnia</span>
                 </div>
                 <ul class="legend">
-                  <li><span class="dot dot--green"></span> Dostępne</li>
-                  <li><span class="dot dot--red"></span> Zajęte</li>
+                  <li><span class="dot dot--green"></span> Spotkanie zarządu - 18:00</li>
+                  <li><span class="dot dot--yellow"></span> Patrol wspólny - 20:30</li>
+                  <li><span class="dot dot--red"></span> Zamknięcie rekrutacji - 22:00</li>
                 </ul>
                 <div class="progress">
-                  <span class="progress__label">Legenda</span>
+                  <span class="progress__label">Zrealizowane cele tygodnia</span>
                   <div class="progress__bar">
-                    <span class="progress__fill" style="width: 75%"></span>
+                    <span class="progress__fill" style="width: 68%"></span>
                   </div>
                 </div>
               </article>
@@ -170,32 +239,30 @@
             <section class="tasks">
               <article class="task-card task-card--owner">
                 <h3 class="task-card__title">Właściciel organizacji</h3>
-                <p class="task-card__time task-card__time--owner" data-org-owner>
-                  Nie przypisano
-                </p>
+                <p class="task-card__time task-card__time--owner" data-org-owner>Nie przypisano</p>
                 <p class="task-card__desc">
-                  Osoba odpowiedzialna za organizację oraz zarządzanie członkami.
+                  Osoba odpowiedzialna za finanse i zatwierdzanie kluczowych decyzji.
                 </p>
               </article>
               <article class="task-card">
-                <h3 class="task-card__title">Kasetka</h3>
-                <p class="task-card__time">20:10</p>
+                <h3 class="task-card__title">Wiadomość rekrutacyjna</h3>
+                <p class="task-card__time" data-org-recruitment-card>Brak</p>
                 <p class="task-card__desc">
-                  Lorem ipsum dolor sit amet consectetur. Mattis id consectetur sed.
+                  Udostępnij kandydatom wymagania lub zaproszenie na rozmowę.
                 </p>
               </article>
               <article class="task-card">
-                <h3 class="task-card__title">Bankomiarz</h3>
-                <p class="task-card__time">21:30</p>
+                <h3 class="task-card__title">Stan skarbca</h3>
+                <p class="task-card__time" data-org-funds-card>0 $</p>
                 <p class="task-card__desc">
-                  Egestas elementum amet arcu eget feugiat aliquam id quis.
+                  Monitoruj wpływy, aby planować przyszłe inwestycje i wydatki.
                 </p>
               </article>
               <article class="task-card">
-                <h3 class="task-card__title">Złote jasełka</h3>
-                <p class="task-card__time">22:00</p>
-                <p class="task-card__desc">
-                  Varius nunc vitae sapien sed tristique eget risus diam.
+                <h3 class="task-card__title">Ostatnia notatka</h3>
+                <p class="task-card__time" data-org-note-title>Brak notatki</p>
+                <p class="task-card__desc" data-org-note-snippet>
+                  Dodaj krótką informację, by zespół wiedział jakie są priorytety.
                 </p>
               </article>
             </section>

@@ -1,6 +1,10 @@
 # tablet_org
 
 Kompletny zasób FiveM z tabletem organizacji dostosowanym do najnowszego ESX.
+Interfejs NUI mieści się w widoku gry, został oprawiony w ramkę tabletu i
+umożliwia z poziomu panelu tworzyć oraz utrzymywać organizację (dowolna nazwa,
+właściciel, motto, komunikat rekrutacyjny, skarbiec i notatki). Dane są
+zapisywane w bazie MySQL przy użyciu `oxmysql`.
 Interfejs NUI mieści się w widoku gry i pozwala z poziomu tabletu tworzyć oraz
 aktualizować organizację (dowolna nazwa i właściciel), a dane są zapisywane w
 bazie MySQL przy użyciu `oxmysql`.
@@ -21,10 +25,19 @@ bazie MySQL przy użyciu `oxmysql`.
      `id` INT NOT NULL AUTO_INCREMENT,
      `name` VARCHAR(128) NOT NULL,
      `owner` VARCHAR(64) NOT NULL,
+     `motto` TEXT NULL,
+     `recruitment_message` TEXT NULL,
+     `funds` INT NOT NULL DEFAULT 0,
+     `note` TEXT NULL,
+     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     `updated_at` DATETIME NULL,
      `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
      PRIMARY KEY (`id`)
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
    ```
+
+   Zasób podczas startu samodzielnie utworzy brakujące kolumny, więc ręczna
+   migracja jest wymagana tylko przy pierwszym wdrożeniu.
 
 5. Dodaj w `server.cfg` wpisy uruchamiające zależności w odpowiedniej kolejności,
    np.:
@@ -44,16 +57,22 @@ Plik `resources/tablet_org/config.lua` udostępnia podstawowe ustawienia:
   panelu (pozostaw puste, aby umożliwić dostęp każdemu).
 - `Config.DatabaseTable` – nazwa tabeli MySQL przechowującej konfigurację
   organizacji.
+- `Config.MaxMottoLength`, `Config.MaxRecruitmentLength`, `Config.MaxNoteLength`
+  – maksymalna długość treści w formularzach tabletu.
+- `Config.MaxFundsAdjustment` – maksymalna jednorazowa operacja skarbca.
+- `Config.MaxStoredFunds` – limit środków przechowywanych w skarbcu.
 
 ## Użytkowanie w grze
 
 1. Po załadowaniu zasobu gracze mogą wpisać `/tabletorg` (lub przypisany klawisz),
    aby otworzyć tablet.
-2. Panel wyświetla aktualny status organizacji, pozwala wpisać dowolną nazwę i
-   właściciela oraz zapisuje dane w bazie danych.
-3. Ponowne zapisanie formularza aktualizuje istniejący rekord – zmiana nazwy
-   odświeża datę utworzenia, natomiast modyfikacja właściciela zachowuje
-   wcześniejszą datę.
+2. Formularz konfiguracyjny pozwala nadać nazwę, właściciela, motto i komunikat
+   rekrutacyjny. Ponowne zapisanie formularza aktualizuje istniejący rekord –
+   zmiana nazwy odświeża datę utworzenia.
+3. Zakładka skarbca umożliwia dodawanie i wypłacanie środków z limitem operacji
+   i limitem przechowywania definiowanym w konfiguracji.
+4. Tablica ogłoszeń zapisuje ważną notatkę dla organizacji i udostępnia ją w
+   podglądzie skrótowym na dole panelu.
 
 Dane organizacji są ładowane przy starcie zasobu i udostępniane wszystkim
 uprawnionym graczom poprzez NUI.
@@ -70,5 +89,5 @@ resources/tablet_org/
 ```
 
 UI korzysta z wbudowanego formularza i komunikacji NUI, dzięki czemu wszystkie
-interakcje odbywają się pomiędzy klientem i serwerem FiveM, bez potrzeby
-uruchamiania dodatkowych usług HTTP.
+interakcje (konfiguracja, finanse, notatki) odbywają się pomiędzy klientem i
+serwerem FiveM, bez potrzeby uruchamiania dodatkowych usług HTTP.

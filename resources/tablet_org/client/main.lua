@@ -62,11 +62,11 @@ RegisterNetEvent('tablet_org:clientUpdate', function(payload)
   end
 
   if payload.message then
-    SendNUIMessage({ action = 'notify', type = 'success', message = payload.message })
+    SendNUIMessage({ action = 'notify', type = 'success', message = payload.message, context = payload.context })
   end
 
   if payload.error then
-    SendNUIMessage({ action = 'notify', type = 'error', message = payload.error })
+    SendNUIMessage({ action = 'notify', type = 'error', message = payload.error, context = payload.context })
   end
 end)
 
@@ -94,5 +94,15 @@ end)
 
 RegisterNUICallback('create', function(data, cb)
   TriggerServerEvent('tablet_org:createOrganization', data)
+  cb({})
+end)
+
+RegisterNUICallback('adjustFunds', function(data, cb)
+  TriggerServerEvent('tablet_org:adjustFunds', data)
+  cb({})
+end)
+
+RegisterNUICallback('updateNote', function(data, cb)
+  TriggerServerEvent('tablet_org:updateNote', data)
   cb({})
 end)

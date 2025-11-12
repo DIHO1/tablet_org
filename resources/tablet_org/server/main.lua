@@ -8,14 +8,24 @@ local organization = {
   id = nil,
   name = nil,
   owner = nil,
+  motto = nil,
+  recruitment = nil,
+  funds = 0,
+  note = nil,
   createdAt = nil,
+  updatedAt = nil,
 }
 
 local function cloneOrganization()
   return {
     name = organization.name,
     owner = organization.owner,
+    motto = organization.motto,
+    recruitment = organization.recruitment,
+    funds = organization.funds or 0,
+    note = organization.note,
     createdAt = organization.createdAt,
+    updatedAt = organization.updatedAt,
   }
 end
 
@@ -49,18 +59,43 @@ local function dbSingle(query, params)
   return Citizen.Await(p)
 end
 
+local function ensureColumn(column, definition)
+  local existing = dbSingle(([[
+    SHOW COLUMNS FROM `%s` LIKE ?
+  ]]):format(tableName), { column })
+
+  if existing then
+    return
+  end
+
+  dbExecute(([[
+    ALTER TABLE `%s` ADD COLUMN `%s` %s
+  ]]):format(tableName, column, definition))
+end
+
 local function ensureSchema()
   local query = ([[
     CREATE TABLE IF NOT EXISTS `%s` (
       `id` INT NOT NULL AUTO_INCREMENT,
       `name` VARCHAR(128) NOT NULL,
       `owner` VARCHAR(64) NOT NULL,
+      `motto` TEXT NULL,
+      `recruitment_message` TEXT NULL,
+      `funds` INT NOT NULL DEFAULT 0,
+      `note` TEXT NULL,
       `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      `updated_at` DATETIME NULL,
       PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   ]]):format(tableName)
 
   dbExecute(query)
+
+  ensureColumn('motto', 'TEXT NULL')
+  ensureColumn('recruitment_message', 'TEXT NULL')
+  ensureColumn('funds', 'INT NOT NULL DEFAULT 0')
+  ensureColumn('note', 'TEXT NULL')
+  ensureColumn('updated_at', 'DATETIME NULL')
 end
 
 local function dbToIso(datetime)
@@ -91,7 +126,7 @@ end
 
 local function loadOrganization()
   local row = dbSingle(([[
-    SELECT `id`, `name`, `owner`, `created_at`
+    SELECT `id`, `name`, `owner`, `motto`, `recruitment_message`, `funds`, `note`, `created_at`, `updated_at`
     FROM `%s`
     ORDER BY `id`
     LIMIT 1
@@ -101,14 +136,24 @@ local function loadOrganization()
     organization.id = nil
     organization.name = nil
     organization.owner = nil
+    organization.motto = nil
+    organization.recruitment = nil
+    organization.funds = 0
+    organization.note = nil
     organization.createdAt = nil
+    organization.updatedAt = nil
     return
   end
 
   organization.id = row.id
   organization.name = row.name
   organization.owner = row.owner
+  organization.motto = row.motto
+  organization.recruitment = row.recruitment_message
+  organization.funds = row.funds or 0
+  organization.note = row.note
   organization.createdAt = dbToIso(row.created_at)
+  organization.updatedAt = dbToIso(row.updated_at)
 end
 
 local function persistOrganization()
@@ -117,16 +162,22 @@ local function persistOrganization()
   end
 
   local createdAtForDb = isoToDb(organization.createdAt) or os.date('!%Y-%m-%d %H:%M:%S')
+  local updatedAtForDb = isoToDb(organization.updatedAt)
 
   if organization.id then
     dbExecute(([[
       UPDATE `%s`
-      SET `name` = ?, `owner` = ?, `created_at` = ?
+      SET `name` = ?, `owner` = ?, `motto` = ?, `recruitment_message` = ?, `funds` = ?, `note` = ?, `created_at` = ?, `updated_at` = ?
       WHERE `id` = ?
     ]]):format(tableName), {
       organization.name,
       organization.owner,
+      organization.motto,
+      organization.recruitment,
+      organization.funds or 0,
+      organization.note,
       createdAtForDb,
+      updatedAtForDb,
       organization.id,
     })
 
@@ -134,12 +185,17 @@ local function persistOrganization()
   end
 
   local insertedId = dbInsert(([[
-    INSERT INTO `%s` (`name`, `owner`, `created_at`)
-    VALUES (?, ?, ?)
+    INSERT INTO `%s` (`name`, `owner`, `motto`, `recruitment_message`, `funds`, `note`, `created_at`, `updated_at`)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   ]]):format(tableName), {
     organization.name,
     organization.owner,
+    organization.motto,
+    organization.recruitment,
+    organization.funds or 0,
+    organization.note,
     createdAtForDb,
+    updatedAtForDb,
   })
 
   organization.id = insertedId
@@ -181,9 +237,11 @@ end
 local function handleOrganizationSave(src, payload)
   local name = sanitizeValue(payload.name, 128)
   local owner = sanitizeValue(payload.owner, 64)
+  local motto = sanitizeValue(payload.motto, Config.MaxMottoLength or 280)
+  local recruitment = sanitizeValue(payload.recruitment, Config.MaxRecruitmentLength or 320)
 
   if not name or not owner then
-    sendClientUpdate(src, { error = 'Wypełnij wszystkie pola formularza.' })
+    sendClientUpdate(src, { error = 'Wypełnij wszystkie pola formularza.', context = 'setup' })
     return
   end
 
@@ -192,16 +250,112 @@ local function handleOrganizationSave(src, payload)
 
   organization.name = name
   organization.owner = owner
+  organization.motto = motto
+  organization.recruitment = recruitment
 
   if isNew or nameChanged or not organization.createdAt then
     organization.createdAt = os.date('!%Y-%m-%dT%H:%M:%SZ')
   end
+
+  organization.updatedAt = os.date('!%Y-%m-%dT%H:%M:%SZ')
+  organization.funds = organization.funds or 0
 
   persistOrganization()
 
   sendClientUpdate(src, {
     data = cloneOrganization(),
     message = isNew and 'Organizacja została utworzona.' or 'Dane organizacji zapisane.',
+    context = 'setup',
+  })
+end
+
+local function ensureOrganizationReady(src, context)
+  if not organization.name then
+    sendClientUpdate(src, {
+      error = 'Musisz utworzyć organizację, zanim skorzystasz z tej funkcji.',
+      context = context or 'setup',
+    })
+    return false
+  end
+
+  return true
+end
+
+local function handleNoteUpdate(src, payload)
+  if not ensureOrganizationReady(src, 'note') then
+    return
+  end
+
+  local note = sanitizeValue(payload.note, Config.MaxNoteLength or 480)
+
+  organization.note = note
+  organization.updatedAt = os.date('!%Y-%m-%dT%H:%M:%SZ')
+
+  persistOrganization()
+
+  sendClientUpdate(src, {
+    data = cloneOrganization(),
+    message = 'Notatka została zaktualizowana.',
+    context = 'note',
+  })
+end
+
+local function handleFundsAdjust(src, payload)
+  if not ensureOrganizationReady(src, 'funds') then
+    return
+  end
+
+  if type(payload) ~= 'table' then
+    sendClientUpdate(src, { error = 'Nieprawidłowa operacja finansowa.', context = 'funds' })
+    return
+  end
+
+  local direction = payload.direction == 'withdraw' and 'withdraw' or 'deposit'
+  local amount = tonumber(payload.amount)
+
+  if not amount or amount <= 0 then
+    sendClientUpdate(src, { error = 'Podaj dodatnią kwotę.', context = 'funds' })
+    return
+  end
+
+  local maxAmount = Config.MaxFundsAdjustment or 500000
+  if amount > maxAmount then
+    sendClientUpdate(src, { error = ('Maksymalna operacja to %d.'):format(maxAmount), context = 'funds' })
+    return
+  end
+
+  organization.funds = organization.funds or 0
+
+  if direction == 'withdraw' and amount > organization.funds then
+    sendClientUpdate(src, { error = 'Brak wystarczających środków w skarbcu.', context = 'funds' })
+    return
+  end
+
+  if direction == 'withdraw' then
+    organization.funds = organization.funds - amount
+  else
+    local maxFunds = Config.MaxStoredFunds or 2000000
+    if organization.funds + amount > maxFunds then
+      sendClientUpdate(src, {
+        error = ('Limit środków to %d.'):format(maxFunds),
+        context = 'funds',
+      })
+      return
+    end
+
+    organization.funds = organization.funds + amount
+  end
+
+  organization.updatedAt = os.date('!%Y-%m-%dT%H:%M:%SZ')
+
+  persistOrganization()
+
+  local message = direction == 'withdraw' and 'Wypłacono środki ze skarbca.' or 'Dodano środki do skarbca.'
+
+  sendClientUpdate(src, {
+    data = cloneOrganization(),
+    message = message,
+    context = 'funds',
   })
 end
 
@@ -238,11 +392,21 @@ RegisterNetEvent('tablet_org:createOrganization', function(payload)
   local src = source
 
   if type(payload) ~= 'table' then
-    sendClientUpdate(src, { error = 'Nieprawidłowe dane formularza.' })
+    sendClientUpdate(src, { error = 'Nieprawidłowe dane formularza.', context = 'setup' })
     return
   end
 
   handleOrganizationSave(src, payload)
+end)
+
+RegisterNetEvent('tablet_org:updateNote', function(payload)
+  local src = source
+  handleNoteUpdate(src, type(payload) == 'table' and payload or {})
+end)
+
+RegisterNetEvent('tablet_org:adjustFunds', function(payload)
+  local src = source
+  handleFundsAdjust(src, type(payload) == 'table' and payload or {})
 end)
 
 AddEventHandler('playerDropped', function(_reason)
