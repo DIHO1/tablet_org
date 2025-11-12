@@ -6,6 +6,9 @@ local function openTablet(data)
   end
 
   isOpen = true
+  if SetNuiFocusKeepInput then
+    SetNuiFocusKeepInput(false)
+  end
   SetNuiFocus(true, true)
   SendNUIMessage({
     action = 'open',
@@ -19,12 +22,16 @@ local function closeTablet()
   end
 
   isOpen = false
+  if SetNuiFocusKeepInput then
+    SetNuiFocusKeepInput(false)
+  end
   SetNuiFocus(false, false)
   SendNUIMessage({ action = 'close' })
 end
 
 RegisterCommand(Config.OpenCommand, function()
   if isOpen then
+    closeTablet()
     return
   end
 

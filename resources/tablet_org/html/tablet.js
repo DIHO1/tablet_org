@@ -69,32 +69,17 @@ function renderOrganization(data) {
   const ownerInput = form.querySelector('input[name="owner"]');
   const submitButton = form.querySelector('button[type="submit"]');
 
-  if (hasOrganization) {
-    if (nameInput) {
-      nameInput.value = organization.name;
-      nameInput.readOnly = true;
-    }
+  if (nameInput) {
+    nameInput.value = organization.name || '';
+    nameInput.readOnly = false;
+  }
 
-    if (ownerInput && organization.owner) {
-      ownerInput.value = organization.owner;
-    }
+  if (ownerInput) {
+    ownerInput.value = organization.owner || '';
+  }
 
-    if (submitButton) {
-      submitButton.textContent = 'Aktualizuj właściciela';
-    }
-  } else {
-    if (nameInput) {
-      nameInput.value = 'Best';
-      nameInput.readOnly = false;
-    }
-
-    if (ownerInput) {
-      ownerInput.value = '';
-    }
-
-    if (submitButton) {
-      submitButton.textContent = 'Utwórz organizację';
-    }
+  if (submitButton) {
+    submitButton.textContent = hasOrganization ? 'Zapisz zmiany' : 'Utwórz organizację';
   }
 }
 

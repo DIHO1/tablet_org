@@ -20,12 +20,12 @@ server_scripts {
 }
 
 dependencies {
-  'es_extended'
+  'es_extended',
+  'oxmysql'
 }
 
 files {
   'html/index.html',
   'html/styles.css',
-  'html/tablet.js',
-  'data/organization.json'
+  'html/tablet.js'
 }

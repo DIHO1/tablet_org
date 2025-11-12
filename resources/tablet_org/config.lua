@@ -12,5 +12,5 @@ Config.AllowedJobs = {
   -- ['ambulance'] = true,
 }
 
--- Path to the json file used to persist the organization data.
-Config.StorageFile = 'data/organization.json'
+-- Database table used to persist the organization data.
+Config.DatabaseTable = 'tablet_organizations'
