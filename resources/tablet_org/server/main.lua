@@ -14,9 +14,20 @@ local organization = {
   note = nil,
   createdAt = nil,
   updatedAt = nil,
+  dailyPlan = {},
 }
 
 local function cloneOrganization()
+  local planCopy = {}
+  if type(organization.dailyPlan) == 'table' then
+    for index, entry in ipairs(organization.dailyPlan) do
+      planCopy[index] = {
+        time = entry.time,
+        label = entry.label,
+      }
+    end
+  end
+
   return {
     name = organization.name,
     owner = organization.owner,
@@ -26,6 +37,7 @@ local function cloneOrganization()
     note = organization.note,
     createdAt = organization.createdAt,
     updatedAt = organization.updatedAt,
+    dailyPlan = planCopy,
   }
 end
 
@@ -83,6 +95,7 @@ local function ensureSchema()
       `recruitment_message` TEXT NULL,
       `funds` INT NOT NULL DEFAULT 0,
       `note` TEXT NULL,
+      `daily_plan` LONGTEXT NULL,
       `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       `updated_at` DATETIME NULL,
       PRIMARY KEY (`id`)
@@ -96,6 +109,7 @@ local function ensureSchema()
   ensureColumn('funds', 'INT NOT NULL DEFAULT 0')
   ensureColumn('note', 'TEXT NULL')
   ensureColumn('updated_at', 'DATETIME NULL')
+  ensureColumn('daily_plan', 'LONGTEXT NULL')
 end
 
 local function dbToIso(datetime)
@@ -126,7 +140,7 @@ end
 
 local function loadOrganization()
   local row = dbSingle(([[
-    SELECT `id`, `name`, `owner`, `motto`, `recruitment_message`, `funds`, `note`, `created_at`, `updated_at`
+    SELECT `id`, `name`, `owner`, `motto`, `recruitment_message`, `funds`, `note`, `daily_plan`, `created_at`, `updated_at`
     FROM `%s`
     ORDER BY `id`
     LIMIT 1
@@ -142,6 +156,7 @@ local function loadOrganization()
     organization.note = nil
     organization.createdAt = nil
     organization.updatedAt = nil
+    organization.dailyPlan = {}
     return
   end
 
@@ -152,6 +167,16 @@ local function loadOrganization()
   organization.recruitment = row.recruitment_message
   organization.funds = row.funds or 0
   organization.note = row.note
+  if row.daily_plan and row.daily_plan ~= '' and json and type(json.decode) == 'function' then
+    local ok, decoded = pcall(json.decode, row.daily_plan)
+    if ok and type(decoded) == 'table' then
+      organization.dailyPlan = sanitizePlanEntries(decoded)
+    else
+      organization.dailyPlan = {}
+    end
+  else
+    organization.dailyPlan = {}
+  end
   organization.createdAt = dbToIso(row.created_at)
   organization.updatedAt = dbToIso(row.updated_at)
 end
@@ -163,11 +188,13 @@ local function persistOrganization()
 
   local createdAtForDb = isoToDb(organization.createdAt) or os.date('!%Y-%m-%d %H:%M:%S')
   local updatedAtForDb = isoToDb(organization.updatedAt)
+  local planEncoder = json and json.encode
+  local planJson = planEncoder and planEncoder(organization.dailyPlan or {}) or '[]'
 
   if organization.id then
     dbExecute(([[
       UPDATE `%s`
-      SET `name` = ?, `owner` = ?, `motto` = ?, `recruitment_message` = ?, `funds` = ?, `note` = ?, `created_at` = ?, `updated_at` = ?
+      SET `name` = ?, `owner` = ?, `motto` = ?, `recruitment_message` = ?, `funds` = ?, `note` = ?, `daily_plan` = ?, `created_at` = ?, `updated_at` = ?
       WHERE `id` = ?
     ]]):format(tableName), {
       organization.name,
@@ -176,6 +203,7 @@ local function persistOrganization()
       organization.recruitment,
       organization.funds or 0,
       organization.note,
+      planJson,
       createdAtForDb,
       updatedAtForDb,
       organization.id,
@@ -185,8 +213,8 @@ local function persistOrganization()
   end
 
   local insertedId = dbInsert(([[
-    INSERT INTO `%s` (`name`, `owner`, `motto`, `recruitment_message`, `funds`, `note`, `created_at`, `updated_at`)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO `%s` (`name`, `owner`, `motto`, `recruitment_message`, `funds`, `note`, `daily_plan`, `created_at`, `updated_at`)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   ]]):format(tableName), {
     organization.name,
     organization.owner,
@@ -194,6 +222,7 @@ local function persistOrganization()
     organization.recruitment,
     organization.funds or 0,
     organization.note,
+    planJson,
     createdAtForDb,
     updatedAtForDb,
   })
@@ -232,6 +261,49 @@ local function sanitizeValue(value, maxLength)
   end
 
   return trimmed
+end
+
+local function sanitizePlanEntries(entries)
+  local sanitized = {}
+
+  if type(entries) ~= 'table' then
+    return sanitized
+  end
+
+  local maxEntries = Config.MaxPlanEntries or 8
+  local maxLabelLength = Config.MaxPlanLabelLength or 64
+
+  for _, entry in ipairs(entries) do
+    if #sanitized >= maxEntries then
+      break
+    end
+
+    if type(entry) == 'table' then
+      local label = sanitizeValue(entry.label, maxLabelLength) or sanitizeValue(entry.task, maxLabelLength)
+      local time = ''
+
+      if type(entry.time) == 'string' then
+        local trimmedTime = sanitizeValue(entry.time, 5)
+        if trimmedTime then
+          local hour, minute = trimmedTime:match('^(%d%d):(%d%d)$')
+          local hourNumber = tonumber(hour)
+          local minuteNumber = tonumber(minute)
+          if hourNumber and minuteNumber and hourNumber >= 0 and hourNumber < 24 and minuteNumber >= 0 and minuteNumber < 60 then
+            time = ('%02d:%02d'):format(hourNumber, minuteNumber)
+          end
+        end
+      end
+
+      if label or time ~= '' then
+        sanitized[#sanitized + 1] = {
+          time = time,
+          label = label,
+        }
+      end
+    end
+  end
+
+  return sanitized
 end
 
 local function handleOrganizationSave(src, payload)
@@ -359,6 +431,31 @@ local function handleFundsAdjust(src, payload)
   })
 end
 
+local function handlePlanUpdate(src, payload)
+  if not ensureOrganizationReady(src, 'plan') then
+    return
+  end
+
+  if type(payload) ~= 'table' then
+    sendClientUpdate(src, { error = 'Nieprawidłowy plan dnia.', context = 'plan' })
+    return
+  end
+
+  local entries = sanitizePlanEntries(payload.entries)
+  organization.dailyPlan = entries
+  organization.updatedAt = os.date('!%Y-%m-%dT%H:%M:%SZ')
+
+  persistOrganization()
+
+  local message = (#entries > 0) and 'Plan dnia zapisany.' or 'Plan dnia został wyczyszczony.'
+
+  sendClientUpdate(src, {
+    data = cloneOrganization(),
+    message = message,
+    context = 'plan',
+  })
+end
+
 RegisterNetEvent('tablet_org:requestOpen', function()
   local src = source
   local xPlayer = ESX.GetPlayerFromId(src)
@@ -407,6 +504,11 @@ end)
 RegisterNetEvent('tablet_org:adjustFunds', function(payload)
   local src = source
   handleFundsAdjust(src, type(payload) == 'table' and payload or {})
+end)
+
+RegisterNetEvent('tablet_org:updatePlan', function(payload)
+  local src = source
+  handlePlanUpdate(src, type(payload) == 'table' and payload or {})
 end)
 
 AddEventHandler('playerDropped', function(_reason)

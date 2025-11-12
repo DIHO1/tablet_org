@@ -106,3 +106,8 @@ RegisterNUICallback('updateNote', function(data, cb)
   TriggerServerEvent('tablet_org:updateNote', data)
   cb({})
 end)
+
+RegisterNUICallback('updatePlan', function(data, cb)
+  TriggerServerEvent('tablet_org:updatePlan', data)
+  cb({})
+end)

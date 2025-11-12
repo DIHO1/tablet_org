@@ -21,3 +21,5 @@ Config.MaxRecruitmentLength = 320
 Config.MaxNoteLength = 480
 Config.MaxFundsAdjustment = 250000
 Config.MaxStoredFunds = 2000000
+Config.MaxPlanEntries = 8
+Config.MaxPlanLabelLength = 64

@@ -3,11 +3,8 @@
 Kompletny zasób FiveM z tabletem organizacji dostosowanym do najnowszego ESX.
 Interfejs NUI mieści się w widoku gry, został oprawiony w ramkę tabletu i
 umożliwia z poziomu panelu tworzyć oraz utrzymywać organizację (dowolna nazwa,
-właściciel, motto, komunikat rekrutacyjny, skarbiec i notatki). Dane są
+właściciel, motto, komunikat rekrutacyjny, skarbiec, plan dnia i notatki). Dane są
 zapisywane w bazie MySQL przy użyciu `oxmysql`.
-Interfejs NUI mieści się w widoku gry i pozwala z poziomu tabletu tworzyć oraz
-aktualizować organizację (dowolna nazwa i właściciel), a dane są zapisywane w
-bazie MySQL przy użyciu `oxmysql`.
 
 ## Instalacja
 
@@ -29,9 +26,9 @@ bazie MySQL przy użyciu `oxmysql`.
      `recruitment_message` TEXT NULL,
      `funds` INT NOT NULL DEFAULT 0,
      `note` TEXT NULL,
+     `daily_plan` LONGTEXT NULL,
      `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
      `updated_at` DATETIME NULL,
-     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
      PRIMARY KEY (`id`)
    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
    ```
@@ -61,18 +58,27 @@ Plik `resources/tablet_org/config.lua` udostępnia podstawowe ustawienia:
   – maksymalna długość treści w formularzach tabletu.
 - `Config.MaxFundsAdjustment` – maksymalna jednorazowa operacja skarbca.
 - `Config.MaxStoredFunds` – limit środków przechowywanych w skarbcu.
+- `Config.MaxPlanEntries`, `Config.MaxPlanLabelLength` – ograniczenia liczby
+  i długości pozycji planu dnia edytowanego w zakładce kalendarza.
 
 ## Użytkowanie w grze
 
 1. Po załadowaniu zasobu gracze mogą wpisać `/tabletorg` (lub przypisany klawisz),
    aby otworzyć tablet.
-2. Formularz konfiguracyjny pozwala nadać nazwę, właściciela, motto i komunikat
+2. Interfejs podzielony jest na zakładki bocznego menu. Strona główna zbiera
+   najważniejsze wskaźniki i skróty do sekcji zarządzania.
+3. Formularz konfiguracyjny pozwala nadać nazwę, właściciela, motto i komunikat
    rekrutacyjny. Ponowne zapisanie formularza aktualizuje istniejący rekord –
    zmiana nazwy odświeża datę utworzenia.
-3. Zakładka skarbca umożliwia dodawanie i wypłacanie środków z limitem operacji
+4. Zakładka kalendarza umożliwia ułożenie planu dnia do ośmiu pozycji, które są
+   automatycznie synchronizowane z bazą i wyświetlane w podglądzie na stronie
+   głównej.
+5. Zakładka skarbca umożliwia dodawanie i wypłacanie środków z limitem operacji
    i limitem przechowywania definiowanym w konfiguracji.
-4. Tablica ogłoszeń zapisuje ważną notatkę dla organizacji i udostępnia ją w
-   podglądzie skrótowym na dole panelu.
+6. Zakładka notatek zapisuje ważną wiadomość dla organizacji i udostępnia ją w
+   podglądzie skrótowym na stronie głównej.
+7. Zakładki „Rekrutacja”, „Baza danych”, „Zadania” oraz „Analizy” prezentują
+   planszę „W budowie – wkrótce dostępne”, przygotowaną pod przyszłe moduły.
 
 Dane organizacji są ładowane przy starcie zasobu i udostępniane wszystkim
 uprawnionym graczom poprzez NUI.

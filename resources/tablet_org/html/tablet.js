@@ -1,5 +1,7 @@
 const RESOURCE_NAME = typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'tablet_org';
 
+const MAX_PLAN_ROWS = 8;
+
 const state = {
   name: null,
   owner: null,
@@ -9,6 +11,7 @@ const state = {
   note: null,
   createdAt: null,
   updatedAt: null,
+  dailyPlan: [],
 };
 
 function postNui(action, payload = {}) {
@@ -51,8 +54,176 @@ function setTextContent(selector, value) {
   element.textContent = value;
 }
 
+let currentPage = 'dashboard';
+
+function activatePage(pageId) {
+  const target = typeof pageId === 'string' && pageId.trim() !== '' ? pageId : 'dashboard';
+  const container = document.querySelector('[data-page-container]');
+  if (!container) {
+    currentPage = target;
+    return;
+  }
+
+  const pages = container.querySelectorAll('[data-page]');
+  pages.forEach((page) => {
+    page.classList.toggle('page--active', page.dataset.page === target);
+  });
+
+  document.querySelectorAll('[data-page-target]').forEach((button) => {
+    button.classList.toggle('sidebar__item--active', button.dataset.pageTarget === target);
+  });
+
+  currentPage = target;
+}
+
+function sanitizePlanEntries(entries) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries
+    .map((entry) => ({
+      time: typeof entry.time === 'string' ? entry.time.trim() : '',
+      label: typeof entry.label === 'string' ? entry.label.trim() : typeof entry.task === 'string' ? entry.task.trim() : '',
+    }))
+    .filter((entry) => entry.time !== '' || entry.label !== '')
+    .slice(0, MAX_PLAN_ROWS);
+}
+
+function createPlanRow({ time = '', label = '' } = {}) {
+  const row = document.createElement('div');
+  row.className = 'plan-row';
+  const safeTime = typeof time === 'string' ? time : '';
+  const safeLabel = typeof label === 'string'
+    ? label
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+    : '';
+  row.innerHTML = `
+    <input class="plan-row__input" type="time" value="${safeTime}" data-plan-time />
+    <input class="plan-row__input" type="text" value="${safeLabel}" placeholder="Opisz aktywność" maxlength="64" data-plan-label />
+    <button class="plan-row__remove" type="button" aria-label="Usuń pozycję">×</button>
+  `;
+
+  return row;
+}
+
+function renderPlanLists(entries) {
+  const preview = document.querySelector('[data-plan-preview]');
+  const detail = document.querySelector('[data-plan-detail]');
+  const items = sanitizePlanEntries(entries);
+
+  const renderList = (root, listItems) => {
+    if (!root) return;
+
+    root.innerHTML = '';
+
+    if (!listItems.length) {
+      const empty = document.createElement('li');
+      empty.className = 'schedule-preview__empty';
+      empty.textContent = 'Brak zaplanowanych aktywności.';
+      root.appendChild(empty);
+      return;
+    }
+
+    listItems.forEach((entry) => {
+      const item = document.createElement('li');
+      item.className = 'schedule-preview__item';
+
+      const time = document.createElement('span');
+      time.className = 'schedule-preview__time';
+      time.textContent = entry.time || '— —';
+
+      const label = document.createElement('p');
+      label.className = 'schedule-preview__label';
+      label.textContent = entry.label || 'Aktywność bez nazwy';
+
+      item.append(time, label);
+      root.appendChild(item);
+    });
+  };
+
+  renderList(preview, items.slice(0, 3));
+  renderList(detail, items);
+}
+
+function syncPlanForm(entries) {
+  const rowsContainer = document.querySelector('[data-plan-rows]');
+  if (!rowsContainer) return;
+
+  rowsContainer.innerHTML = '';
+
+  const items = sanitizePlanEntries(entries);
+  const rows = items.length ? items : [{}];
+
+  rows.forEach((entry) => {
+    rowsContainer.appendChild(createPlanRow(entry));
+  });
+}
+
+function appendPlanRow() {
+  const rowsContainer = document.querySelector('[data-plan-rows]');
+  if (!rowsContainer) return;
+
+  const existing = rowsContainer.querySelectorAll('.plan-row').length;
+  if (existing >= MAX_PLAN_ROWS) {
+    setFeedback(`Możesz zaplanować maksymalnie ${MAX_PLAN_ROWS} aktywności.`, 'error', 'plan');
+    return;
+  }
+
+  rowsContainer.appendChild(createPlanRow());
+}
+
+function handlePlanSubmit(event) {
+  event.preventDefault();
+
+  const form = event.currentTarget;
+  const rows = Array.from(form.querySelectorAll('.plan-row'));
+  const entries = [];
+  let hasError = false;
+
+  rows.forEach((row) => {
+    const timeInput = row.querySelector('[data-plan-time]');
+    const labelInput = row.querySelector('[data-plan-label]');
+
+    const timeValue = timeInput ? String(timeInput.value || '').trim() : '';
+    const labelValue = labelInput ? String(labelInput.value || '').trim() : '';
+
+    if (!timeValue && !labelValue) {
+      return;
+    }
+
+    if (timeValue && !/^\d{2}:\d{2}$/.test(timeValue)) {
+      hasError = true;
+    }
+
+    entries.push({ time: timeValue, label: labelValue });
+  });
+
+  if (hasError) {
+    setFeedback('Użyj formatu HH:MM dla godzin w planie dnia.', 'error', 'plan');
+    return;
+  }
+
+  if (entries.length > MAX_PLAN_ROWS) {
+    setFeedback(`Możesz zaplanować maksymalnie ${MAX_PLAN_ROWS} aktywności.`, 'error', 'plan');
+    return;
+  }
+
+  setFeedback('Zapisywanie planu...', 'info', 'plan');
+  postNui('updatePlan', { entries });
+}
+
 function toggleVisibility(visible) {
   document.body.classList.toggle('tablet--hidden', !visible);
+  if (visible) {
+    activatePage(currentPage || 'dashboard');
+  } else {
+    currentPage = 'dashboard';
+    activatePage('dashboard');
+  }
 }
 
 function setFeedback(message, type = 'info', context = 'setup') {
@@ -167,6 +338,23 @@ function renderOrganization(data) {
   setTextContent('[data-org-note-title]', noteTitle);
   setTextContent('[data-org-note-snippet]', noteSnippet);
 
+  const planEntries = sanitizePlanEntries(organization.dailyPlan || state.dailyPlan);
+  renderPlanLists(planEntries);
+  syncPlanForm(planEntries);
+
+  const hasPlan = planEntries.length > 0;
+  const planUpdatedText = hasPlan
+    ? (organization.updatedAt ? `Plan zaktualizowano: ${updatedText}` : 'Plan zapisany w tej sesji.')
+    : 'Plan nie został jeszcze przygotowany.';
+
+  const noteUpdatedText = hasNote
+    ? (organization.updatedAt ? `Ostatnia aktualizacja: ${updatedText}` : 'Notatka zapisana w tej sesji.')
+    : 'Notatka nie została jeszcze zapisana.';
+
+  setTextContent('[data-plan-updated]', planUpdatedText);
+  setTextContent('[data-note-updated]', noteUpdatedText);
+  setTextContent('[data-funds-updated]', `Ostatnie saldo: ${fundsText}`);
+
   syncFormValues(document.getElementById('org-form'));
   syncNoteForm();
 }
@@ -182,6 +370,12 @@ function syncState(newState) {
   state.note = typeof incoming.note === 'undefined' ? null : incoming.note;
   state.createdAt = typeof incoming.createdAt === 'undefined' ? null : incoming.createdAt;
   state.updatedAt = typeof incoming.updatedAt === 'undefined' ? null : incoming.updatedAt;
+  const incomingPlan = Array.isArray(incoming.dailyPlan)
+    ? incoming.dailyPlan
+    : Array.isArray(incoming.plan)
+      ? incoming.plan
+      : [];
+  state.dailyPlan = sanitizePlanEntries(incomingPlan);
 
   renderOrganization(state);
 }
@@ -197,6 +391,7 @@ function handleMessage(event) {
     setFeedback('', 'info', 'setup');
     setFeedback('', 'info', 'funds');
     setFeedback('', 'info', 'note');
+    setFeedback('', 'info', 'plan');
     toggleVisibility(true);
     return;
   }
@@ -206,6 +401,7 @@ function handleMessage(event) {
     setFeedback('', 'info', 'setup');
     setFeedback('', 'info', 'funds');
     setFeedback('', 'info', 'note');
+    setFeedback('', 'info', 'plan');
     return;
   }
 
@@ -304,6 +500,25 @@ function handleNoteSubmit(event) {
 }
 
 function bindInteractions() {
+  const nav = document.querySelector('[data-page-nav]');
+  if (nav) {
+    nav.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-page-target]');
+      if (!button) {
+        return;
+      }
+
+      event.preventDefault();
+      activatePage(button.dataset.pageTarget);
+    });
+  }
+
+  document.querySelectorAll('[data-open-page]').forEach((element) => {
+    element.addEventListener('click', () => {
+      activatePage(element.dataset.openPage);
+    });
+  });
+
   const orgForm = document.getElementById('org-form');
   if (orgForm) {
     orgForm.addEventListener('submit', handleOrgFormSubmit);
@@ -317,6 +532,42 @@ function bindInteractions() {
   const noteForm = document.getElementById('note-form');
   if (noteForm) {
     noteForm.addEventListener('submit', handleNoteSubmit);
+  }
+
+  const planForm = document.getElementById('plan-form');
+  if (planForm) {
+    planForm.addEventListener('submit', handlePlanSubmit);
+  }
+
+  const planRows = document.querySelector('[data-plan-rows]');
+  if (planRows) {
+    planRows.addEventListener('click', (event) => {
+      const removeButton = event.target.closest('.plan-row__remove');
+      if (!removeButton) {
+        return;
+      }
+
+      event.preventDefault();
+      const row = removeButton.closest('.plan-row');
+      if (row) {
+        row.remove();
+      }
+
+      if (planRows.querySelectorAll('.plan-row').length === 0) {
+        appendPlanRow();
+      }
+
+      setFeedback('', 'info', 'plan');
+    });
+  }
+
+  const addPlanButton = document.querySelector('[data-action="add-plan-row"]');
+  if (addPlanButton) {
+    addPlanButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      appendPlanRow();
+      setFeedback('', 'info', 'plan');
+    });
   }
 
   document.querySelectorAll('[data-action="close"]').forEach((element) => {
@@ -334,6 +585,7 @@ function bindInteractions() {
 
 function bootstrap() {
   bindInteractions();
+  syncPlanForm(state.dailyPlan);
   window.addEventListener('message', handleMessage);
   toggleVisibility(false);
   postNui('ready');
