@@ -1,0 +1,346 @@
+const RESOURCE_NAME = typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'tablet_org';
+
+const state = {
+  name: null,
+  owner: null,
+  motto: null,
+  recruitment: null,
+  funds: 0,
+  note: null,
+  createdAt: null,
+  updatedAt: null,
+};
+
+function postNui(action, payload = {}) {
+  fetch(`https://${RESOURCE_NAME}/${action}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=UTF-8',
+    },
+    body: JSON.stringify(payload),
+  }).catch(() => {});
+}
+
+function formatDate(isoString, fallback = 'Brak') {
+  if (!isoString) {
+    return fallback;
+  }
+
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) {
+    return fallback;
+  }
+
+  return date.toLocaleString('pl-PL', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatCurrency(value) {
+  const amount = Number(value) || 0;
+  return `${amount.toLocaleString('pl-PL')} $`;
+}
+
+function setTextContent(selector, value) {
+  const element = typeof selector === 'string' ? document.querySelector(selector) : selector;
+  if (!element) return;
+  element.textContent = value;
+}
+
+function toggleVisibility(visible) {
+  document.body.classList.toggle('tablet--hidden', !visible);
+}
+
+function setFeedback(message, type = 'info', context = 'setup') {
+  const feedback = document.querySelector(`[data-feedback="${context}"]`);
+  if (!feedback) return;
+
+  feedback.textContent = message || '';
+  feedback.classList.remove('config-form__feedback--error', 'config-form__feedback--success');
+
+  if (!message) {
+    return;
+  }
+
+  if (type === 'error') {
+    feedback.classList.add('config-form__feedback--error');
+  } else if (type === 'success') {
+    feedback.classList.add('config-form__feedback--success');
+  }
+}
+
+function syncFormValues(form) {
+  if (!form) return;
+
+  const nameInput = form.querySelector('input[name="name"]');
+  const ownerInput = form.querySelector('input[name="owner"]');
+  const mottoInput = form.querySelector('input[name="motto"]');
+  const recruitmentInput = form.querySelector('textarea[name="recruitment"]');
+  const submitButton = form.querySelector('button[type="submit"]');
+
+  if (nameInput) {
+    nameInput.value = state.name || '';
+  }
+
+  if (ownerInput) {
+    ownerInput.value = state.owner || '';
+  }
+
+  if (mottoInput) {
+    mottoInput.value = state.motto || '';
+  }
+
+  if (recruitmentInput) {
+    recruitmentInput.value = state.recruitment || '';
+  }
+
+  if (submitButton) {
+    submitButton.textContent = state.name ? 'Zapisz zmiany' : 'Utwórz organizację';
+  }
+}
+
+function syncNoteForm() {
+  const noteInput = document.querySelector('#org-note');
+  if (noteInput) {
+    noteInput.value = state.note || '';
+  }
+}
+
+function renderOrganization(data) {
+  const organization = data || state;
+  const hasOrganization = Boolean(organization.name);
+  const statusText = hasOrganization ? 'Aktywna' : 'Nieaktywna';
+  const fundsText = formatCurrency(organization.funds);
+  const createdText = hasOrganization ? formatDate(organization.createdAt) : 'Brak';
+  const updatedText = organization.updatedAt ? formatDate(organization.updatedAt) : 'Brak aktualizacji';
+  const mottoText = organization.motto || 'Dodaj motto, aby wyróżnić charakter Twojej drużyny.';
+  const recruitmentText = organization.recruitment || 'Brak';
+  const hasNote = organization.note && organization.note.trim() !== '';
+  const displayNote = hasNote
+    ? organization.note
+    : 'Brak zapisanej notatki. Uzupełnij tablicę, aby przekazać priorytetowe zadania.';
+
+  setTextContent('[data-org-name]', hasOrganization ? organization.name : 'Brak organizacji');
+  setTextContent('[data-org-status]', statusText);
+  setTextContent('[data-org-status-large]', statusText);
+  setTextContent('[data-org-status-pill]', statusText);
+
+  const message = hasOrganization
+    ? `Panel aktywny dla organizacji „${organization.name}”.`
+    : 'Skonfiguruj swoją organizację, aby odblokować pełny panel.';
+  setTextContent('[data-org-message]', message);
+
+  document
+    .querySelectorAll('[data-org-owner]')
+    .forEach((element) => setTextContent(element, organization.owner || 'Nie przypisano'));
+
+  document.querySelectorAll('[data-org-created]').forEach((element) => {
+    setTextContent(element, createdText);
+  });
+  document.querySelectorAll('[data-org-created-badge]').forEach((element) => {
+    setTextContent(element, createdText);
+  });
+
+  setTextContent('[data-org-updated]', updatedText);
+  setTextContent('[data-org-updated-footer]', updatedText);
+
+  setTextContent('[data-org-funds]', fundsText);
+  setTextContent('[data-org-funds-badge]', fundsText);
+  setTextContent('[data-org-funds-strong]', fundsText);
+  setTextContent('[data-org-funds-card]', fundsText);
+
+  setTextContent('[data-org-recruitment]', recruitmentText);
+  setTextContent('[data-org-recruitment-card]', recruitmentText);
+
+  setTextContent('[data-org-motto]', mottoText);
+
+  const noteTitle = hasNote ? organization.note.split('\n')[0] : 'Brak notatki';
+  const noteSnippet = hasNote
+    ? (organization.note.length > 120 ? `${organization.note.slice(0, 117)}...` : organization.note)
+    : 'Dodaj krótką informację, by zespół wiedział jakie są priorytety.';
+
+  setTextContent('[data-org-note]', displayNote);
+  setTextContent('[data-org-note-title]', noteTitle);
+  setTextContent('[data-org-note-snippet]', noteSnippet);
+
+  syncFormValues(document.getElementById('org-form'));
+  syncNoteForm();
+}
+
+function syncState(newState) {
+  const incoming = newState || {};
+
+  state.name = typeof incoming.name === 'undefined' ? null : incoming.name;
+  state.owner = typeof incoming.owner === 'undefined' ? null : incoming.owner;
+  state.motto = typeof incoming.motto === 'undefined' ? null : incoming.motto;
+  state.recruitment = typeof incoming.recruitment === 'undefined' ? null : incoming.recruitment;
+  state.funds = typeof incoming.funds === 'undefined' ? 0 : Number(incoming.funds) || 0;
+  state.note = typeof incoming.note === 'undefined' ? null : incoming.note;
+  state.createdAt = typeof incoming.createdAt === 'undefined' ? null : incoming.createdAt;
+  state.updatedAt = typeof incoming.updatedAt === 'undefined' ? null : incoming.updatedAt;
+
+  renderOrganization(state);
+}
+
+function handleMessage(event) {
+  const payload = event.data || {};
+
+  if (payload.action === 'open') {
+    if (payload.data) {
+      syncState(payload.data);
+    }
+
+    setFeedback('', 'info', 'setup');
+    setFeedback('', 'info', 'funds');
+    setFeedback('', 'info', 'note');
+    toggleVisibility(true);
+    return;
+  }
+
+  if (payload.action === 'close') {
+    toggleVisibility(false);
+    setFeedback('', 'info', 'setup');
+    setFeedback('', 'info', 'funds');
+    setFeedback('', 'info', 'note');
+    return;
+  }
+
+  if (payload.action === 'notify') {
+    const context = payload.context || 'setup';
+    if (payload.type === 'error') {
+      setFeedback(payload.message || 'Wystąpił błąd.', 'error', context);
+    } else if (payload.message) {
+      setFeedback(payload.message, 'success', context);
+      if (context === 'funds') {
+        const amountInput = document.querySelector('#funds-amount');
+        if (amountInput) {
+          amountInput.value = '';
+        }
+      }
+    }
+    return;
+  }
+
+  if (payload.action === 'update') {
+    if (payload.data) {
+      syncState(payload.data);
+    }
+  }
+
+  if (payload.data) {
+    syncState(payload.data);
+  }
+
+  if (payload.message) {
+    setFeedback(payload.message, 'success', payload.context || 'setup');
+    if (payload.context === 'funds') {
+      const amountInput = document.querySelector('#funds-amount');
+      if (amountInput) {
+        amountInput.value = '';
+      }
+    }
+  }
+
+  if (payload.error) {
+    setFeedback(payload.error, 'error', payload.context || 'setup');
+  }
+}
+
+function handleOrgFormSubmit(event) {
+  event.preventDefault();
+
+  const form = event.currentTarget;
+  const formData = new FormData(form);
+  const name = String(formData.get('name') || '').trim();
+  const owner = String(formData.get('owner') || '').trim();
+  const motto = String(formData.get('motto') || '').trim();
+  const recruitment = String(formData.get('recruitment') || '').trim();
+
+  if (!name || !owner) {
+    setFeedback('Uzupełnij nazwę i właściciela.', 'error', 'setup');
+    return;
+  }
+
+  setFeedback('Zapisywanie...', 'info', 'setup');
+  postNui('create', { name, owner, motto, recruitment });
+}
+
+function handleFundsSubmit(event) {
+  event.preventDefault();
+
+  const submitter = event.submitter;
+  const direction = submitter && submitter.dataset.direction ? submitter.dataset.direction : 'deposit';
+  const form = event.currentTarget;
+  const amountInput = form.querySelector('input[name="amount"]');
+  const amount = amountInput ? Number(amountInput.value) : NaN;
+
+  if (!amount || amount <= 0) {
+    setFeedback('Podaj dodatnią kwotę.', 'error', 'funds');
+    return;
+  }
+
+  setFeedback('Przetwarzanie operacji...', 'info', 'funds');
+  postNui('adjustFunds', { amount, direction });
+}
+
+function handleNoteSubmit(event) {
+  event.preventDefault();
+
+  const form = event.currentTarget;
+  const formData = new FormData(form);
+  const note = String(formData.get('note') || '').trim();
+
+  if (!note) {
+    setFeedback('Dodaj treść notatki, aby zapisać.', 'error', 'note');
+    return;
+  }
+
+  setFeedback('Zapisywanie...', 'info', 'note');
+  postNui('updateNote', { note });
+}
+
+function bindInteractions() {
+  const orgForm = document.getElementById('org-form');
+  if (orgForm) {
+    orgForm.addEventListener('submit', handleOrgFormSubmit);
+  }
+
+  const fundsForm = document.getElementById('funds-form');
+  if (fundsForm) {
+    fundsForm.addEventListener('submit', handleFundsSubmit);
+  }
+
+  const noteForm = document.getElementById('note-form');
+  if (noteForm) {
+    noteForm.addEventListener('submit', handleNoteSubmit);
+  }
+
+  document.querySelectorAll('[data-action="close"]').forEach((element) => {
+    element.addEventListener('click', () => {
+      postNui('close');
+    });
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      postNui('close');
+    }
+  });
+}
+
+function bootstrap() {
+  bindInteractions();
+  window.addEventListener('message', handleMessage);
+  toggleVisibility(false);
+  postNui('ready');
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootstrap);
+} else {
+  bootstrap();
+}
