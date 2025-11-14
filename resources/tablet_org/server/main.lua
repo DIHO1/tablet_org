@@ -84,14 +84,47 @@ local function getCachedDiscordRole(discordId)
   return nil
 end
 
+local function resolveDiscordCacheTtl(hasRole)
+  local defaults = hasRole and 300 or 45
+  local ttl
+
+  if type(Config.Discord) == 'table' then
+    local configTtl
+    if hasRole and tonumber(Config.Discord.SuccessCacheDuration) then
+      configTtl = tonumber(Config.Discord.SuccessCacheDuration)
+    elseif not hasRole and tonumber(Config.Discord.FailureCacheDuration) then
+      configTtl = tonumber(Config.Discord.FailureCacheDuration)
+    elseif tonumber(Config.Discord.CacheDuration) then
+      configTtl = tonumber(Config.Discord.CacheDuration)
+    end
+
+    if configTtl then
+      ttl = math.floor(configTtl)
+    end
+  end
+
+  ttl = ttl or defaults
+
+  if ttl <= 0 then
+    return 0
+  end
+
+  if hasRole then
+    return math.max(30, ttl)
+  end
+
+  return math.max(10, ttl)
+end
+
 local function setCachedDiscordRole(discordId, hasRole, message)
   if not discordId then
     return
   end
 
-  local cacheTtl = 300
-  if type(Config.Discord) == 'table' and tonumber(Config.Discord.CacheDuration) then
-    cacheTtl = math.max(30, math.floor(tonumber(Config.Discord.CacheDuration)))
+  local cacheTtl = resolveDiscordCacheTtl(hasRole == true)
+  if cacheTtl <= 0 then
+    discordRoleCache[discordId] = nil
+    return
   end
 
   discordRoleCache[discordId] = {
@@ -101,7 +134,7 @@ local function setCachedDiscordRole(discordId, hasRole, message)
   }
 end
 
-local function fetchDiscordRole(discordId)
+local function fetchDiscordRole(discordId, forceRefresh)
   if not isDiscordCheckEnabled() then
     return true, nil
   end
@@ -120,7 +153,7 @@ local function fetchDiscordRole(discordId)
     return false, message
   end
 
-  local cached = getCachedDiscordRole(discordId)
+  local cached = (forceRefresh ~= true) and getCachedDiscordRole(discordId)
   if cached then
     return cached.hasRole, cached.message
   end
@@ -201,7 +234,7 @@ local function fetchDiscordRole(discordId)
   return hasRole == true, message
 end
 
-local function canPlayerCreateOrganization(src)
+local function canPlayerCreateOrganization(src, options)
   if organization.name then
     return true, nil
   end
@@ -211,7 +244,7 @@ local function canPlayerCreateOrganization(src)
   end
 
   local discordId = getPlayerDiscordId(src)
-  local hasRole, message = fetchDiscordRole(discordId)
+  local hasRole, message = fetchDiscordRole(discordId, options and options.forceRefresh)
 
   if hasRole then
     return true, nil
@@ -546,7 +579,7 @@ local function handleOrganizationSave(src, payload)
 
   local isNew = organization.name == nil
   if isNew then
-    local canCreate, reason = canPlayerCreateOrganization(src)
+    local canCreate, reason = canPlayerCreateOrganization(src, { forceRefresh = true })
     if not canCreate then
       sendClientUpdate(src, { error = reason or DISCORD_DEFAULT_DENY, context = 'setup' })
       return

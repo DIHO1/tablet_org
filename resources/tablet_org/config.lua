@@ -29,6 +29,7 @@ Config.Discord = {
   GuildId = '1435216731063717922',
   RequiredRoleId = '1438145331144687837',
   BotToken = '', -- Wklej token bota Discord w to pole, aby włączyć weryfikację rangi.
-  CacheDuration = 300, -- czas (w sekundach) przez jaki wynik sprawdzenia będzie pamiętany
+  SuccessCacheDuration = 300, -- czas (w sekundach) pamiętania pozytywnego wyniku sprawdzenia
+  FailureCacheDuration = 45, -- czas (w sekundach) pamiętania negatywnego wyniku (0 aby wyłączyć cache dla odmów)
   Timeout = 5000, -- maksymalny czas oczekiwania na odpowiedź Discord (ms)
 }

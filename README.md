@@ -61,8 +61,8 @@ Plik `resources/tablet_org/config.lua` udostępnia podstawowe ustawienia:
 - `Config.MaxPlanEntries`, `Config.MaxPlanLabelLength` – ograniczenia liczby
   i długości pozycji planu dnia edytowanego w zakładce kalendarza.
 - `Config.Discord` – ustawienia weryfikacji rangi Discord (ID serwera, ID roli,
-  token bota, czas cache i limit odpowiedzi). Token bota wklej do pola
-  `BotToken`.
+  token bota, czas cache dla pozytywnego i negatywnego wyniku oraz limit
+  odpowiedzi). Token bota wklej do pola `BotToken`.
 
 ### Weryfikacja rangi Discord
 
@@ -73,14 +73,19 @@ rangę na Discordzie (DC):
 2. W pliku `config.lua` ustaw `Config.Discord.GuildId` (ID serwera),
    `Config.Discord.RequiredRoleId` (ID wymaganej roli) oraz wklej token bota do
    `Config.Discord.BotToken`.
-3. Zrestartuj zasób. Podczas startu konsola przypomni, jeśli token nie został
+3. (Opcjonalnie) Dostosuj pamięć podręczną weryfikacji – pola
+   `SuccessCacheDuration` i `FailureCacheDuration` określają, na jak długo wynik
+   sprawdzenia ma zostać zachowany (ustaw `0`, aby natychmiast ponawiać
+   zapytania przy odmowie). `Timeout` definiuje maksymalny czas oczekiwania na
+   odpowiedź Discord.
+4. Zrestartuj zasób. Podczas startu konsola przypomni, jeśli token nie został
    ustawiony.
 
 Gracze bez wymaganej rangi (lub bez połączonego identyfikatora Discord w FiveM)
 zobaczą w formularzu konfiguracji zablokowany panel z komunikatem „Postaraj się
-o rangę na DC, aby utworzyć organizację.”. Po nadaniu rangi lub
-uzupełnieniu tokenu panel odblokuje się automatycznie po kolejnym otwarciu
-tabletu.
+o rangę na DC, aby utworzyć organizację.”. Po nadaniu rangi i ponownym
+otwarciu tabletu uprawnienia są weryfikowane ponownie, a wynik negatywny jest
+przechowywany tylko przez konfigurowalny, krótki czas.
 
 ## Użytkowanie w grze
 

@@ -30,6 +30,19 @@ local function closeTablet()
   SendNUIMessage({ action = 'close' })
 end
 
+AddEventHandler('onClientResourceStart', function(resource)
+  if resource ~= GetCurrentResourceName() then
+    return
+  end
+
+  isOpen = false
+  if SetNuiFocusKeepInput then
+    SetNuiFocusKeepInput(false)
+  end
+  SetNuiFocus(false, false)
+  SendNUIMessage({ action = 'close' })
+end)
+
 RegisterCommand(Config.OpenCommand, function()
   if isOpen then
     closeTablet()

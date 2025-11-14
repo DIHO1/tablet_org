@@ -222,7 +222,21 @@ function handlePlanSubmit(event) {
 }
 
 function toggleVisibility(visible) {
-  document.body.classList.toggle('tablet--hidden', !visible);
+  const body = document.body;
+  const root = document.querySelector('[data-tablet-root]');
+
+  if (body) {
+    if (!body.classList.contains('tablet-shell')) {
+      body.classList.add('tablet-shell');
+    }
+
+    body.classList.toggle('tablet-shell--active', Boolean(visible));
+  }
+
+  if (root) {
+    root.classList.toggle('tablet--hidden', !visible);
+  }
+
   if (visible) {
     activatePage(currentPage || 'dashboard');
     updateCreationGuard();
